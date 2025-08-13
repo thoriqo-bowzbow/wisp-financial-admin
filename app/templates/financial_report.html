@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Laporan Keuangan{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header">
+        Pilih Periode Laporan
+    </div>
+    <div class="card-body">
+        <form method="POST" action="">
+            {{ form.hidden_tag() }}
+            <div class="row align-items-end">
+                <div class="col-md-4">
+                    {{ form.bulan.label(class="form-label") }}
+                    {{ form.bulan(class="form-select") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.tahun.label(class="form-label") }}
+                    {{ form.tahun(class="form-control") }}
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Tampilkan</button>
+                </div>
+                <!-- TOMBOL EXPORT BARU -->
+                {% if report_data %}
+                <div class="col-md-2">
+                    <a href="{{ url_for('export_financial_report', bulan=report_data.bulan, tahun=report_data.tahun) }}" class="btn btn-success w-100">Export Excel</a>
+                </div>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if report_data %}
+<hr>
+<h2>Laporan Keuangan untuk {{ report_data.period }}</h2>
+<div class="row mt-4">
+    <!-- PENDAPATAN -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">Pendapatan Kotor</div>
+            <div class="card-body">
+                <h4 class="card-title">Rp {{ "{:,.0f}".format(report_data.pendapatan_kotor) }}</h4>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for invoice in report_data.rincian_pendapatan %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ invoice.customer.nama }}
+                    <span class="badge bg-light text-dark">Rp {{ "{:,.0f}".format(invoice.jumlah) }}</span>
+                </li>
+                {% else %}
+                <li class="list-group-item">Tidak ada pendapatan.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <!-- PENGELUARAN -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header bg-danger text-white">Pengeluaran</div>
+            <div class="card-body">
+                <h4 class="card-title">Rp {{ "{:,.0f}".format(report_data.total_pengeluaran) }}</h4>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for expense in report_data.rincian_pengeluaran %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ expense.deskripsi }}
+                    <span class="badge bg-light text-dark">Rp {{ "{:,.0f}".format(expense.jumlah) }}</span>
+                </li>
+                {% else %}
+                <li class="list-group-item">Tidak ada pengeluaran.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <!-- KALKULASI LABA -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">Kalkulasi & Laba</div>
+            <div class="card-body">
+                {% if report_data.laba_bersih is not none %}
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between"><span>Pendapatan Kotor</span> <strong>Rp {{ "{:,.0f}".format(report_data.pendapatan_kotor) }}</strong></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Alokasi Belanja</span> <span>- Rp {{ "{:,.0f}".format(report_data.alokasi_belanja) }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Balik Modal</span> <span>- Rp {{ "{:,.0f}".format(report_data.setoran_balik_modal) }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between bg-light"><strong>Dana Siap Bagi</strong> <strong>Rp {{ "{:,.0f}".format(report_data.dana_siap_bagi) }}</strong></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Bagian Anda ({{ report_data.persen_anda }}%)</span> <strong>Rp {{ "{:,.0f}".format(report_data.bagian_anda) }}</strong></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Bagian Investor ({{ report_data.persen_investor }}%)</span> <strong>Rp {{ "{:,.0f}".format(report_data.bagian_investor) }}</strong></li>
+                    </ul>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <strong>Pendapatan Kotor (Rp {{ "{:,.0f}".format(report_data.pendapatan_kotor) }})</strong> belum mencapai target minimum <strong>(Rp {{ "{:,.0f}".format(report_data.target_pendapatan) }})</strong> untuk pembagian hasil.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

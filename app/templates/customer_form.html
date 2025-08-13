@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<form method="POST" action="">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.nama.label(class="form-label") }}
+        {{ form.nama(class="form-control") }}
+    </div>
+    <div class="mb-3">
+        {{ form.alamat.label(class="form-label") }}
+        {{ form.alamat(class="form-control") }}
+    </div>
+    <div class="mb-3">
+        {{ form.telepon.label(class="form-label") }}
+        {{ form.telepon(class="form-control") }}
+    </div>
+    <div class="mb-3">
+        {{ form.package_id.label(class="form-label") }}
+        {{ form.package_id(class="form-select") }}
+    </div>
+    <div class="mb-3">
+        {{ form.status.label(class="form-label") }}
+        {{ form.status(class="form-select") }}
+    </div>
+    <div class="mb-3">
+        {{ form.submit(class="btn btn-primary") }}
+    </div>
+</form>
+{% endblock %}

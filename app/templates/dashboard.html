@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+  <h1 class="mb-4">Dashboard Keuangan - {{ current_month_name }} {{ current_year }}</h1>
+
+  <div class="row">
+    <!-- ... (Kartu-kartu ringkasan tetap sama) ... -->
+    <div class="col-xl-3 col-md-6 mb-4">
+      <div class="card border-left-success shadow h-100 py-2">
+        <div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-success text-uppercase mb-1">Pendapatan</div><div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ "{:,.0f}".format(stats.revenue_current_month) }}</div></div></div></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+      <div class="card border-left-danger shadow h-100 py-2">
+        <div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Pengeluaran</div><div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ "{:,.0f}".format(stats.expense_current_month) }}</div></div></div></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+      <div class="card border-left-warning shadow h-100 py-2">
+        <div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Tunggakan</div><div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ "{:,.0f}".format(stats.unpaid_current_month) }}</div></div></div></div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+      <div class="card border-left-info shadow h-100 py-2">
+        <div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-info text-uppercase mb-1">Pelanggan Aktif</div><div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.active_customers }}</div></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AREA GRAFIK BARU -->
+  <div class="row">
+    <div class="col-lg-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Ringkasan 6 Bulan Terakhir</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-bar">
+                    <canvas id="myBarChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <!-- ... (Tabel tagihan terbaru tetap sama) ... -->
+  <h3 class="mt-4">Tagihan Terbaru</h3>
+  <table class="table table-sm table-striped">
+    <thead>
+        <tr><th>ID</th><th>Pelanggan</th><th>Periode</th><th>Jumlah</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+        {% for invoice in recent_invoices %}
+        <tr>
+            <td>{{ invoice.id }}</td>
+            <td>{{ invoice.customer.nama }}</td>
+            <td>{{ "{:02d}".format(invoice.bulan) }}/{{ invoice.tahun }}</td>
+            <td>Rp {{ "{:,.0f}".format(invoice.jumlah) }}</td>
+            <td>
+                {% if invoice.status == 'Lunas' %}<span class="badge bg-success">Lunas</span>{% else %}<span class="badge bg-danger">Belum Lunas</span>{% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center">Belum ada tagihan.</td></tr>
+        {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
+
+<!-- SCRIPT JAVASCRIPT BARU UNTUK GRAFIK -->
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        fetch("{{ url_for('api_financial_summary') }}")
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('myBarChart').getContext('2d');
+                const myBarChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: "Pendapatan",
+                            backgroundColor: "#198754",
+                            data: data.revenue,
+                        }, {
+                            label: "Pengeluaran",
+                            backgroundColor: "#dc3545",
+                            data: data.expenses,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value, index, values) {
+                                        return 'Rp ' + value.toLocaleString('id-ID');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+    });
+</script>
+{% endblock %}
