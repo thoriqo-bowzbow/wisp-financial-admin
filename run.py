@@ -26,4 +26,5 @@ def create_user(username, email, password):
     print(f"User '{username}' berhasil dibuat.")
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # --- PERUBAHAN DI SINI ---
+    app.run(host='0.0.0.0', debug=True)
