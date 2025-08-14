@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, IntegerField, SelectField, TextAreaField, FloatField, PasswordField, BooleanField
 from wtforms.fields import DateField
-from wtforms.validators import DataRequired, Length, NumberRange, Email, EqualTo, ValidationError
+from wtforms.validators import DataRequired, Length, NumberRange, Email, EqualTo, ValidationError, Optional, InputRequired
 from datetime import datetime
 from app.models import User
 
@@ -15,8 +15,9 @@ class CustomerForm(FlaskForm):
     nama = StringField('Nama Pelanggan', validators=[DataRequired(), Length(min=3, max=100)])
     alamat = StringField('Alamat', validators=[DataRequired(), Length(min=5, max=200)])
     telepon = StringField('Nomor Telepon', validators=[DataRequired(), Length(min=8, max=20)])
-    package_id = SelectField('Paket Layanan', coerce=int, validators=[DataRequired()])
+    package_id = SelectField('Paket Layanan', coerce=int, validators=[Optional()])
     status = SelectField('Status Pelanggan', choices=[('Aktif', 'Aktif'), ('Nonaktif', 'Nonaktif'), ('Isolir', 'Isolir')], validators=[DataRequired()])
+    tanggal_bergabung = DateField('Tanggal Bergabung', format='%Y-%m-%d', default=datetime.utcnow, validators=[DataRequired()])
     submit = SubmitField('Simpan')
 
 class ServicePackageForm(FlaskForm):
@@ -42,9 +43,11 @@ class ExpenseForm(FlaskForm):
     submit = SubmitField('Simpan Pengeluaran')
 
 class SettingsForm(FlaskForm):
-    target_pendapatan = IntegerField('Target Pendapatan Kotor Minimum (Rp)', validators=[DataRequired()])
-    alokasi_belanja = IntegerField('Alokasi Belanja Bulanan (Rp)', validators=[DataRequired()])
-    setoran_balik_modal = IntegerField('Setoran Balik Modal per Bulan (Rp)', validators=[DataRequired()])
-    persen_anda = FloatField('Persentase Bagi Hasil Anda (%)', validators=[DataRequired(), NumberRange(min=0, max=100)])
-    persen_investor = FloatField('Persentase Bagi Hasil Investor (%)', validators=[DataRequired(), NumberRange(min=0, max=100)])
+    # --- PERBAIKAN PENTING DI SINI ---
+    # Mengganti DataRequired dengan InputRequired agar bisa menerima angka 0
+    target_pendapatan = IntegerField('Target Pendapatan Kotor Minimum (Rp)', validators=[InputRequired(), NumberRange(min=0)])
+    alokasi_belanja = IntegerField('Alokasi Belanja Bulanan (Rp)', validators=[InputRequired(), NumberRange(min=0)])
+    setoran_balik_modal = IntegerField('Setoran Balik Modal per Bulan (Rp)', validators=[InputRequired(), NumberRange(min=0)])
+    persen_anda = FloatField('Persentase Bagi Hasil Anda (%)', validators=[InputRequired(), NumberRange(min=0, max=100)])
+    persen_investor = FloatField('Persentase Bagi Hasil Investor (%)', validators=[InputRequired(), NumberRange(min=0, max=100)])
     submit = SubmitField('Simpan Pengaturan')
