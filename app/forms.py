@@ -1,4 +1,5 @@
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, SubmitField, IntegerField, SelectField, TextAreaField, FloatField, PasswordField, BooleanField
 from wtforms.fields import DateField
 from wtforms.validators import DataRequired, Length, NumberRange, Email, EqualTo, ValidationError, Optional, InputRequired
@@ -33,6 +34,8 @@ class GenerateInvoicesForm(FlaskForm):
 
 class PaymentForm(FlaskForm):
     tanggal_lunas = DateField('Tanggal Pembayaran', format='%Y-%m-%d', default=datetime.utcnow, validators=[DataRequired()])
+    # --- FIELD BARU UNTUK UPLOAD FOTO ---
+    nota = FileField('Upload Nota (Opsional)', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     submit = SubmitField('Simpan Pembayaran')
 
 class ExpenseForm(FlaskForm):
@@ -43,8 +46,6 @@ class ExpenseForm(FlaskForm):
     submit = SubmitField('Simpan Pengeluaran')
 
 class SettingsForm(FlaskForm):
-    # --- PERBAIKAN PENTING DI SINI ---
-    # Mengganti DataRequired dengan InputRequired agar bisa menerima angka 0
     target_pendapatan = IntegerField('Target Pendapatan Kotor Minimum (Rp)', validators=[InputRequired(), NumberRange(min=0)])
     alokasi_belanja = IntegerField('Alokasi Belanja Bulanan (Rp)', validators=[InputRequired(), NumberRange(min=0)])
     setoran_balik_modal = IntegerField('Setoran Balik Modal per Bulan (Rp)', validators=[InputRequired(), NumberRange(min=0)])

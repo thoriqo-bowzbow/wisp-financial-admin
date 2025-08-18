@@ -1,3 +1,5 @@
+import os
+import secrets
 from flask import render_template, url_for, flash, redirect, request, Response, jsonify
 from app import app, db, bcrypt
 from app.models import User, Customer, ServicePackage, Invoice, Expense, Setting
@@ -10,7 +12,29 @@ from flask_login import login_user, current_user, logout_user, login_required
 import openpyxl
 from io import BytesIO
 
-# --- Fungsi Helper ---
+# --- FUNGSI HELPER BARU UNTUK SIMPAN GAMBAR ---
+def save_receipt_picture(form_picture, customer_name, invoice):
+    random_hex = secrets.token_hex(8)
+    _, f_ext = os.path.splitext(form_picture.filename)
+
+    # Membuat nama folder berdasarkan tahun dan bulan
+    folder_name = f"{invoice.tahun}_{invoice.bulan:02d}"
+    upload_folder = os.path.join(app.root_path, 'static/uploads', folder_name)
+
+    # Membuat folder jika belum ada
+    os.makedirs(upload_folder, exist_ok=True)
+
+    # Membuat nama file yang deskriptif dan unik
+    picture_fn = f"{customer_name.replace(' ', '_')}_{random_hex}{f_ext}"
+    picture_path = os.path.join(upload_folder, picture_fn)
+
+    # Simpan gambar
+    form_picture.save(picture_path)
+
+    # Return path relatif untuk disimpan di database
+    return os.path.join(folder_name, picture_fn)
+
+# ... (Sisa rute tidak berubah sampai 'pay_invoice') ...
 def get_settings():
     settings_db = Setting.query.all()
     settings = {s.key: s.value for s in settings_db}
@@ -20,7 +44,6 @@ def get_settings():
             settings[key] = value
     return settings
 
-# --- Rute Autentikasi ---
 @app.route("/login", methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated: return redirect(url_for('dashboard'))
@@ -40,7 +63,6 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- Rute Utama & Dashboard ---
 @app.route("/")
 @app.route("/dashboard")
 @login_required
@@ -55,7 +77,6 @@ def dashboard():
     recent_invoices = Invoice.query.order_by(Invoice.tanggal_buat.desc()).limit(5).all()
     return render_template('dashboard.html', stats=stats, recent_invoices=recent_invoices, current_month_name=now.strftime('%B'), current_year=current_year)
 
-# --- Rute API untuk Grafik ---
 @app.route("/api/financial_summary")
 @login_required
 def api_financial_summary():
@@ -71,7 +92,6 @@ def api_financial_summary():
         expense_data.append(expense)
     return jsonify({'labels': labels, 'revenue': revenue_data, 'expenses': expense_data})
 
-# --- Rute Manajemen Pelanggan (DIPERBARUI) ---
 @app.route('/customers')
 @login_required
 def customers():
@@ -86,10 +106,8 @@ def customers():
 @login_required
 def add_customer():
     form = CustomerForm()
-    # --- PERBAIKAN DI SINI ---
     form.package_id.choices = [(0, "--- Pilih Paket (Opsional) ---")] + [(p.id, p.nama_paket) for p in ServicePackage.query.order_by('nama_paket').all()]
     if form.validate_on_submit():
-        # Cek jika pilihan bukan placeholder (0)
         pkg_id = form.package_id.data if form.package_id.data != 0 else None
         new_customer = Customer(
             nama=form.nama.data, 
@@ -110,10 +128,8 @@ def add_customer():
 def update_customer(customer_id):
     customer = Customer.query.get_or_404(customer_id)
     form = CustomerForm()
-    # --- PERBAIKAN DI SINI ---
     form.package_id.choices = [(0, "--- Pilih Paket (Opsional) ---")] + [(p.id, p.nama_paket) for p in ServicePackage.query.order_by('nama_paket').all()]
     if form.validate_on_submit():
-        # Cek jika pilihan bukan placeholder (0)
         pkg_id = form.package_id.data if form.package_id.data != 0 else None
         customer.nama = form.nama.data
         customer.alamat = form.alamat.data
@@ -128,13 +144,11 @@ def update_customer(customer_id):
         form.nama.data = customer.nama
         form.alamat.data = customer.alamat
         form.telepon.data = customer.telepon
-        # Jika pelanggan tidak punya paket, set default ke 0 (placeholder)
         form.package_id.data = customer.package_id or 0
         form.status.data = customer.status
         form.tanggal_bergabung.data = customer.tanggal_bergabung
     return render_template('customer_form.html', title='Edit Pelanggan', form=form)
 
-# ... (Sisa rute tidak berubah) ...
 @app.route('/customer/<int:customer_id>/delete', methods=['POST'])
 @login_required
 def delete_customer(customer_id):
@@ -143,6 +157,40 @@ def delete_customer(customer_id):
     db.session.commit()
     flash('Pelanggan berhasil dihapus.', 'info')
     return redirect(url_for('customers'))
+
+@app.route('/invoices', methods=['GET'])
+@login_required
+def invoices():
+    gen_form = GenerateInvoicesForm()
+    payment_form = PaymentForm()
+    gen_form.bulan.data = datetime.utcnow().month
+    all_invoices = Invoice.query.order_by(Invoice.tahun.desc(), Invoice.bulan.desc(), Invoice.id.desc()).all()
+    return render_template('invoices.html', invoices=all_invoices, gen_form=gen_form, payment_form=payment_form)
+
+# --- RUTE PEMBAYARAN (DIPERBARUI) ---
+@app.route('/invoice/<int:invoice_id>/pay', methods=['POST'])
+@login_required
+def pay_invoice(invoice_id):
+    invoice = Invoice.query.get_or_404(invoice_id)
+    form = PaymentForm()
+    if form.validate_on_submit():
+        if form.nota.data:
+            # Mengirim objek invoice ke fungsi save
+            picture_file = save_receipt_picture(form.nota.data, invoice.customer.nama, invoice)
+            invoice.bukti_pembayaran = picture_file
+
+        invoice.status = 'Lunas'
+        invoice.tanggal_lunas = form.tanggal_lunas.data
+        db.session.commit()
+        flash(f'Tagihan untuk {invoice.customer.nama} telah ditandai lunas.', 'success')
+    else:
+        # Loop melalui error dan tampilkan
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"Error di field '{getattr(form, field).label.text}': {error}", 'danger')
+    return redirect(url_for('invoices'))
+
+# ... (Sisa rute tidak berubah) ...
 @app.route('/invoices/generate', methods=['POST'])
 @login_required
 def generate_invoices():
@@ -300,25 +348,6 @@ def delete_service_package(package_id):
     db.session.commit()
     flash('Paket layanan berhasil dihapus.', 'info')
     return redirect(url_for('service_packages'))
-@app.route('/invoices', methods=['GET'])
-@login_required
-def invoices():
-    gen_form = GenerateInvoicesForm()
-    payment_form = PaymentForm()
-    gen_form.bulan.data = datetime.utcnow().month
-    all_invoices = Invoice.query.order_by(Invoice.tahun.desc(), Invoice.bulan.desc(), Invoice.id.desc()).all()
-    return render_template('invoices.html', invoices=all_invoices, gen_form=gen_form, payment_form=payment_form)
-@app.route('/invoice/<int:invoice_id>/pay', methods=['POST'])
-@login_required
-def pay_invoice(invoice_id):
-    invoice = Invoice.query.get_or_404(invoice_id)
-    form = PaymentForm()
-    if form.validate_on_submit():
-        invoice.status, invoice.tanggal_lunas = 'Lunas', form.tanggal_lunas.data
-        db.session.commit()
-        flash(f'Tagihan untuk {invoice.customer.nama} telah ditandai lunas.', 'success')
-    else: flash('Data tanggal tidak valid.', 'danger')
-    return redirect(url_for('invoices'))
 @app.route('/expenses', methods=['GET'])
 @login_required
 def expenses():

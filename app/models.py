@@ -21,8 +21,6 @@ class Customer(db.Model):
     status = db.Column(db.String(20), nullable=False, default='Aktif')
     tanggal_bergabung = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     package = db.relationship('ServicePackage', backref=db.backref('customers', lazy=True))
-    # --- PERBAIKAN PENTING DI SINI ---
-    # Aturan ini memberitahu database: "Jika customer ini dihapus, hapus juga semua tagihannya"
     invoices = db.relationship('Invoice', backref='customer', lazy=True, cascade="all, delete-orphan")
 
 class ServicePackage(db.Model):
@@ -30,11 +28,9 @@ class ServicePackage(db.Model):
     nama_paket = db.Column(db.String(100), nullable=False)
     kecepatan = db.Column(db.Integer, nullable=False)
     harga = db.Column(db.Integer, nullable=False)
-        
+
 class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    # --- PERBAIKAN KECIL DI SINI ---
-    # backref='customer' sudah didefinisikan di model Customer, jadi tidak perlu ada di sini lagi.
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
     bulan = db.Column(db.Integer, nullable=False)
     tahun = db.Column(db.Integer, nullable=False)
@@ -42,7 +38,9 @@ class Invoice(db.Model):
     status = db.Column(db.String(20), nullable=False, default='Belum Lunas')
     tanggal_buat = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     tanggal_lunas = db.Column(db.DateTime, nullable=True)
-        
+    # --- PERUBAHAN DI SINI ---
+    bukti_pembayaran = db.Column(db.String(100), nullable=True)
+
 class Expense(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     deskripsi = db.Column(db.String(200), nullable=False)
