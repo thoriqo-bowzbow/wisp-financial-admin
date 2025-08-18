@@ -12,29 +12,18 @@ from flask_login import login_user, current_user, logout_user, login_required
 import openpyxl
 from io import BytesIO
 
-# --- FUNGSI HELPER BARU UNTUK SIMPAN GAMBAR ---
+# ... (Fungsi Helper save_receipt_picture & get_settings tidak berubah) ...
 def save_receipt_picture(form_picture, customer_name, invoice):
     random_hex = secrets.token_hex(8)
     _, f_ext = os.path.splitext(form_picture.filename)
-
-    # Membuat nama folder berdasarkan tahun dan bulan
     folder_name = f"{invoice.tahun}_{invoice.bulan:02d}"
     upload_folder = os.path.join(app.root_path, 'static/uploads', folder_name)
-
-    # Membuat folder jika belum ada
     os.makedirs(upload_folder, exist_ok=True)
-
-    # Membuat nama file yang deskriptif dan unik
     picture_fn = f"{customer_name.replace(' ', '_')}_{random_hex}{f_ext}"
     picture_path = os.path.join(upload_folder, picture_fn)
-
-    # Simpan gambar
     form_picture.save(picture_path)
-
-    # Return path relatif untuk disimpan di database
     return os.path.join(folder_name, picture_fn)
 
-# ... (Sisa rute tidak berubah sampai 'pay_invoice') ...
 def get_settings():
     settings_db = Setting.query.all()
     settings = {s.key: s.value for s in settings_db}
@@ -44,6 +33,7 @@ def get_settings():
             settings[key] = value
     return settings
 
+# ... (Rute Autentikasi, Dashboard, API tidak berubah) ...
 @app.route("/login", methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated: return redirect(url_for('dashboard'))
@@ -92,6 +82,25 @@ def api_financial_summary():
         expense_data.append(expense)
     return jsonify({'labels': labels, 'revenue': revenue_data, 'expenses': expense_data})
 
+# --- RUTE BARU: HAPUS TAGIHAN ---
+@app.route('/invoice/<int:invoice_id>/delete', methods=['POST'])
+@login_required
+def delete_invoice(invoice_id):
+    invoice = Invoice.query.get_or_404(invoice_id)
+
+    # Hapus file foto jika ada
+    if invoice.bukti_pembayaran:
+        try:
+            os.remove(os.path.join(app.root_path, 'static/uploads', invoice.bukti_pembayaran))
+        except FileNotFoundError:
+            pass # Abaikan jika file tidak ditemukan
+
+    db.session.delete(invoice)
+    db.session.commit()
+    flash('Tagihan berhasil dihapus.', 'info')
+    return redirect(url_for('invoices'))
+
+# ... (Sisa rute lain tidak berubah) ...
 @app.route('/customers')
 @login_required
 def customers():
@@ -109,14 +118,7 @@ def add_customer():
     form.package_id.choices = [(0, "--- Pilih Paket (Opsional) ---")] + [(p.id, p.nama_paket) for p in ServicePackage.query.order_by('nama_paket').all()]
     if form.validate_on_submit():
         pkg_id = form.package_id.data if form.package_id.data != 0 else None
-        new_customer = Customer(
-            nama=form.nama.data, 
-            alamat=form.alamat.data, 
-            telepon=form.telepon.data, 
-            package_id=pkg_id,
-            status=form.status.data,
-            tanggal_bergabung=form.tanggal_bergabung.data
-        )
+        new_customer = Customer(nama=form.nama.data, alamat=form.alamat.data, telepon=form.telepon.data, package_id=pkg_id, status=form.status.data, tanggal_bergabung=form.tanggal_bergabung.data)
         db.session.add(new_customer)
         db.session.commit()
         flash('Pelanggan baru berhasil ditambahkan!', 'success')
@@ -131,22 +133,12 @@ def update_customer(customer_id):
     form.package_id.choices = [(0, "--- Pilih Paket (Opsional) ---")] + [(p.id, p.nama_paket) for p in ServicePackage.query.order_by('nama_paket').all()]
     if form.validate_on_submit():
         pkg_id = form.package_id.data if form.package_id.data != 0 else None
-        customer.nama = form.nama.data
-        customer.alamat = form.alamat.data
-        customer.telepon = form.telepon.data
-        customer.package_id = pkg_id
-        customer.status = form.status.data
-        customer.tanggal_bergabung = form.tanggal_bergabung.data
+        customer.nama, customer.alamat, customer.telepon, customer.package_id, customer.status, customer.tanggal_bergabung = form.nama.data, form.alamat.data, form.telepon.data, pkg_id, form.status.data, form.tanggal_bergabung.data
         db.session.commit()
         flash('Data pelanggan berhasil diperbarui!', 'success')
         return redirect(url_for('customers'))
     elif request.method == 'GET':
-        form.nama.data = customer.nama
-        form.alamat.data = customer.alamat
-        form.telepon.data = customer.telepon
-        form.package_id.data = customer.package_id or 0
-        form.status.data = customer.status
-        form.tanggal_bergabung.data = customer.tanggal_bergabung
+        form.nama.data, form.alamat.data, form.telepon.data, form.package_id.data, form.status.data, form.tanggal_bergabung.data = customer.nama, customer.alamat, customer.telepon, customer.package_id or 0, customer.status, customer.tanggal_bergabung
     return render_template('customer_form.html', title='Edit Pelanggan', form=form)
 
 @app.route('/customer/<int:customer_id>/delete', methods=['POST'])
@@ -167,7 +159,6 @@ def invoices():
     all_invoices = Invoice.query.order_by(Invoice.tahun.desc(), Invoice.bulan.desc(), Invoice.id.desc()).all()
     return render_template('invoices.html', invoices=all_invoices, gen_form=gen_form, payment_form=payment_form)
 
-# --- RUTE PEMBAYARAN (DIPERBARUI) ---
 @app.route('/invoice/<int:invoice_id>/pay', methods=['POST'])
 @login_required
 def pay_invoice(invoice_id):
@@ -175,22 +166,17 @@ def pay_invoice(invoice_id):
     form = PaymentForm()
     if form.validate_on_submit():
         if form.nota.data:
-            # Mengirim objek invoice ke fungsi save
             picture_file = save_receipt_picture(form.nota.data, invoice.customer.nama, invoice)
             invoice.bukti_pembayaran = picture_file
-
-        invoice.status = 'Lunas'
-        invoice.tanggal_lunas = form.tanggal_lunas.data
+        invoice.status, invoice.tanggal_lunas = 'Lunas', form.tanggal_lunas.data
         db.session.commit()
         flash(f'Tagihan untuk {invoice.customer.nama} telah ditandai lunas.', 'success')
     else:
-        # Loop melalui error dan tampilkan
         for field, errors in form.errors.items():
             for error in errors:
                 flash(f"Error di field '{getattr(form, field).label.text}': {error}", 'danger')
     return redirect(url_for('invoices'))
 
-# ... (Sisa rute tidak berubah) ...
 @app.route('/invoices/generate', methods=['POST'])
 @login_required
 def generate_invoices():
@@ -268,7 +254,7 @@ def export_financial_report():
     excel_file = BytesIO()
     wb.save(excel_file)
     excel_file.seek(0)
-    return Response(excel_file, headers={'Content-Disposition': f'attachment; filename=laporan_{bulan}_{tahun}.xlsx', 'Content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
+    return Response(excel_file, headers={'Content-Disposition': f'attachment; filename=laporan_{bulan}_{tahun}.xlsx', 'Content-type': 'application/vnd.openxmlformats-officedocument.sheet'})
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
