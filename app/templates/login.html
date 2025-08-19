@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row justify-content-center mt-5">
+<div class="row justify-content-center"> <!-- mt-5 diubah jadi mt-4 untuk mengurangi space atas -->
     <div class="col-md-6 col-lg-4">
         <div class="text-center mb-4">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="Venous Logo" height="60">
+            <!-- Ukuran logo diubah dari 60 menjadi 90 -->
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Venous Logo" height="300">
             <h1 class="h3 mt-3 mb-3 font-weight-normal">Welcome to Venous Financial</h1>
             <p class="text-muted">Please sign in to continue</p>
         </div>
