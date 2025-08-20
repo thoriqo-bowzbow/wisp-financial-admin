@@ -1,0 +1,33 @@
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f8f9fa;
+}
+.navbar-brand img {
+    margin-right: 8px;
+}
+.card {
+    border: none;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    transition: transform .2s;
+}
+.card:hover {
+    transform: translateY(-5px);
+}
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+.table {
+    background-color: #ffffff;
+}
+/* Menambahkan efek highlight pada baris tabel */
+.table-hover tbody tr:hover {
+    background-color: #e9ecef; /* Warna abu-abu muda */
+    cursor: pointer;
+}
+
+/* Membuat judul halaman lebih menonjol */
+h1 {
+    font-weight: 600;
+    color: #343a40;
+}
