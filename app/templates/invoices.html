@@ -5,17 +5,32 @@
 {% block content %}
   <div class="card mb-4">
     <div class="card-header">
-      Generate Tagihan Bulanan
+      Generate & Kelola Tagihan
     </div>
     <div class="card-body">
-      <form method="POST" action="{{ url_for('generate_invoices') }}">
-        {{ gen_form.hidden_tag() }}
-        <div class="row align-items-end">
-          <div class="col-md-4"><div class="mb-3">{{ gen_form.bulan.label(class="form-label") }}{{ gen_form.bulan(class="form-select") }}</div></div>
-          <div class="col-md-4"><div class="mb-3">{{ gen_form.tahun.label(class="form-label") }}{{ gen_form.tahun(class="form-control") }}</div></div>
-          <div class="col-md-4"><div class="mb-3">{{ gen_form.submit(class="btn btn-primary w-100") }}</div></div>
+      <div class="row">
+        <!-- Form Generate Tagihan -->
+        <div class="col-md-8">
+          <form method="POST" action="{{ url_for('generate_invoices') }}">
+            {{ gen_form.hidden_tag() }}
+            <div class="row align-items-end">
+              <div class="col-md-5"><div class="mb-3 mb-md-0">{{ gen_form.bulan.label(class="form-label") }}{{ gen_form.bulan(class="form-select") }}</div></div>
+              <div class="col-md-5"><div class="mb-3 mb-md-0">{{ gen_form.tahun.label(class="form-label") }}{{ gen_form.tahun(class="form-control") }}</div></div>
+              <div class="col-md-2"><div class="d-grid">{{ gen_form.submit(class="btn btn-primary") }}</div></div>
+            </div>
+          </form>
         </div>
-      </form>
+        <!-- Tombol Hapus Semua -->
+        <div class="col-md-4 d-flex align-items-end">
+          <form method="POST" action="{{ url_for('delete_all_invoices') }}" class="w-100">
+            <div class="d-grid">
+              <button type="submit" class="btn btn-danger" onclick="return confirm('PERINGATAN: Anda akan menghapus SEMUA data tagihan. Aksi ini tidak bisa dibatalkan. Lanjutkan?')">
+                Hapus Semua Tagihan
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -32,27 +47,49 @@
                 <tbody>
                     {% for invoice in invoices %}
                     <tr>
-                        <td>{{ invoice.customer.nama if invoice.customer else 'PELANGGAN DIHAPUS' }}</td>
-                        <td>{{ "{:02d}".format(invoice.bulan) }}/{{ invoice.tahun }}</td>
-                        <td>Rp {{ "{:,.0f}".format(invoice.jumlah) }}</td>
-                        <td>
-                            {% if invoice.status == 'Lunas' %}<span class="badge bg-success">Lunas</span>
-                            {% else %}<span class="badge bg-danger">Belum Lunas</span>{% endif %}
-                        </td>
-                        <td>{{ invoice.tanggal_lunas.strftime('%d-%m-%Y') if invoice.tanggal_lunas else '-' }}</td>
-                        <td>
-                            {% if invoice.bukti_pembayaran %}<a href="{{ url_for('static', filename='uploads/' + invoice.bukti_pembayaran) }}" target="_blank">Lihat</a>
-                            {% else %}-{% endif %}
-                        </td>
-                        <td>
-                            {% if invoice.status != 'Lunas' %}
-                            <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#payModal{{ invoice.id }}">Bayar</button>
-                            {% endif %}
-                            <form method="POST" action="{{ url_for('delete_invoice', invoice_id=invoice.id) }}" style="display:inline;">
-                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Anda yakin ingin menghapus tagihan ini? Ini tidak bisa dibatalkan.')">Hapus</button>
-                            </form>
-                        </td>
+                    <td>{{ invoice.customer.nama if invoice.customer else 'PELANGGAN DIHAPUS' }}</td>
+                    <td>{{ "{:02d}".format(invoice.bulan) }}/{{ invoice.tahun }}</td>
+                    <td>Rp {{ "{:,.0f}".format(invoice.jumlah) }}</td>
+                    <td>
+                        {% if invoice.status == 'Lunas' %}<span class="badge bg-success">Lunas</span>
+                        {% else %}<span class="badge bg-danger">Belum Lunas</span>{% endif %}
+                    </td>
+                    <td>{{ invoice.tanggal_lunas.strftime('%d-%m-%Y') if invoice.tanggal_lunas else '-' }}</td>
+                    <td>
+                        {% if invoice.bukti_pembayaran %}<a href="{{ url_for('static', filename='uploads/' + invoice.bukti_pembayaran) }}" target="_blank">Lihat</a>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td>
+                        {% if invoice.status != 'Lunas' %}
+                        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#payModal{{ invoice.id }}">Bayar</button>
+                        {% endif %}
+                        <form method="POST" action="{{ url_for('delete_invoice', invoice_id=invoice.id) }}" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Anda yakin ingin menghapus tagihan ini? Ini tidak bisa dibatalkan.')">Hapus</button>
+                        </form>
+                    </td>
                     </tr>
+                    <div class="modal fade" id="payModal{{ invoice.id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Pembayaran untuk {{ invoice.customer.nama if invoice.customer else 'N/A' }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form method="POST" action="{{ url_for('pay_invoice', invoice_id=invoice.id) }}" enctype="multipart/form-data">
+                            {{ payment_form.hidden_tag() }}
+                            <div class="modal-body">
+                                <p>Tagihan periode <strong>{{ "{:02d}".format(invoice.bulan) }}/{{ invoice.tahun }}</strong> sebesar <strong>Rp {{ "{:,.0f}".format(invoice.jumlah) }}</strong></p>
+                                <div class="mb-3">{{ payment_form.tanggal_lunas.label(class="form-label") }}{{ payment_form.tanggal_lunas(class="form-control") }}</div>
+                                <div class="mb-3">{{ payment_form.nota.label(class="form-label") }}{{ payment_form.nota(class="form-control") }}</div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                {{ payment_form.submit(class="btn btn-primary") }}
+                            </div>
+                        </form>
+                        </div>
+                    </div>
+                    </div>
                     {% else %}
                     <tr><td colspan="7" class="text-center">Belum ada data tagihan.</td></tr>
                     {% endfor %}
@@ -61,32 +98,4 @@
         </div>
     </div>
   </div>
-
-<!-- =================================================================== -->
-<!-- PERBAIKAN DI SINI: SEMUA MODAL DIKUMPULKAN DI LUAR TABEL -->
-<!-- =================================================================== -->
-{% for invoice in invoices %}
-<div class="modal fade" id="payModal{{ invoice.id }}" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-        <div class="modal-header">
-            <h5 class="modal-title">Pembayaran untuk {{ invoice.customer.nama if invoice.customer else 'N/A' }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <form method="POST" action="{{ url_for('pay_invoice', invoice_id=invoice.id) }}" enctype="multipart/form-data">
-            {{ payment_form.hidden_tag() }}
-            <div class="modal-body">
-                <p>Tagihan periode <strong>{{ "{:02d}".format(invoice.bulan) }}/{{ invoice.tahun }}</strong> sebesar <strong>Rp {{ "{:,.0f}".format(invoice.jumlah) }}</strong></p>
-                <div class="mb-3">{{ payment_form.tanggal_lunas.label(class="form-label") }}{{ payment_form.tanggal_lunas(class="form-control") }}</div>
-                <div class="mb-3">{{ payment_form.nota.label(class="form-label") }}{{ payment_form.nota(class="form-control") }}</div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                {{ payment_form.submit(class="btn btn-primary") }}
-            </div>
-        </form>
-        </div>
-    </div>
-</div>
-{% endfor %}
 {% endblock %}

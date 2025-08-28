@@ -1,5 +1,6 @@
 import os
 import secrets
+import shutil
 from flask import render_template, url_for, flash, redirect, request, Response, jsonify
 from app import app, db, bcrypt
 from app.models import User, Customer, ServicePackage, Invoice, Expense, Setting
@@ -12,7 +13,7 @@ from flask_login import login_user, current_user, logout_user, login_required
 import openpyxl
 from io import BytesIO
 
-# --- Fungsi Helper ---
+# ... (Fungsi Helper save_receipt_picture & get_settings tidak berubah) ...
 def save_receipt_picture(form_picture, customer_name, invoice):
     random_hex = secrets.token_hex(8)
     _, f_ext = os.path.splitext(form_picture.filename)
@@ -33,7 +34,7 @@ def get_settings():
             settings[key] = value
     return settings
 
-# --- Rute Autentikasi ---
+# ... (Rute Autentikasi, Dashboard, API, Pelanggan tidak berubah) ...
 @app.route("/login", methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated: return redirect(url_for('dashboard'))
@@ -47,13 +48,10 @@ def login():
         else:
             flash('Login Gagal. Silakan periksa email dan password.', 'danger')
     return render_template('login.html', title='Login', form=form)
-
 @app.route("/logout")
 def logout():
     logout_user()
     return redirect(url_for('login'))
-
-# --- Rute Utama & Dashboard ---
 @app.route("/")
 @app.route("/dashboard")
 @login_required
@@ -67,7 +65,6 @@ def dashboard():
     stats = {'revenue_current_month': revenue_this_month, 'unpaid_current_month': unpaid_this_month, 'expense_current_month': expense_this_month, 'active_customers': active_customers}
     recent_invoices = Invoice.query.order_by(Invoice.tanggal_buat.desc()).limit(5).all()
     return render_template('dashboard.html', stats=stats, recent_invoices=recent_invoices, current_month_name=now.strftime('%B'), current_year=current_year)
-
 @app.route("/api/financial_summary")
 @login_required
 def api_financial_summary():
@@ -82,8 +79,6 @@ def api_financial_summary():
         expense = db.session.query(func.sum(Expense.jumlah)).filter(extract('month', Expense.tanggal) == month, extract('year', Expense.tanggal) == year).scalar() or 0
         expense_data.append(expense)
     return jsonify({'labels': labels, 'revenue': revenue_data, 'expenses': expense_data})
-
-# --- Rute Manajemen Pelanggan ---
 @app.route('/customers')
 @login_required
 def customers():
@@ -93,7 +88,6 @@ def customers():
         query = query.filter(or_(Customer.nama.ilike(f'%{search}%'), Customer.alamat.ilike(f'%{search}%')))
     all_customers = query.order_by(Customer.nama).all()
     return render_template('customers.html', customers=all_customers)
-
 @app.route('/customer/add', methods=['GET', 'POST'])
 @login_required
 def add_customer():
@@ -107,7 +101,6 @@ def add_customer():
         flash('Pelanggan baru berhasil ditambahkan!', 'success')
         return redirect(url_for('customers'))
     return render_template('customer_form.html', title='Tambah Pelanggan', form=form)
-
 @app.route('/customer/<int:customer_id>/update', methods=['GET', 'POST'])
 @login_required
 def update_customer(customer_id):
@@ -123,7 +116,6 @@ def update_customer(customer_id):
     elif request.method == 'GET':
         form.nama.data, form.alamat.data, form.telepon.data, form.package_id.data, form.status.data, form.tanggal_bergabung.data = customer.nama, customer.alamat, customer.telepon, customer.package_id or 0, customer.status, customer.tanggal_bergabung
     return render_template('customer_form.html', title='Edit Pelanggan', form=form)
-
 @app.route('/customer/<int:customer_id>/delete', methods=['POST'])
 @login_required
 def delete_customer(customer_id):
@@ -133,7 +125,7 @@ def delete_customer(customer_id):
     flash('Pelanggan berhasil dihapus.', 'info')
     return redirect(url_for('customers'))
 
-# --- Rute Manajemen Tagihan ---
+# --- Rute Manajemen Tagihan (DIPERBARUI) ---
 @app.route('/invoices', methods=['GET'])
 @login_required
 def invoices():
@@ -182,7 +174,6 @@ def generate_invoices():
     else: flash('Data formulir tidak valid.', 'danger')
     return redirect(url_for('invoices'))
 
-# --- PERBAIKAN DI SINI: RUTE HAPUS TAGIHAN DIKEMBALIKAN ---
 @app.route('/invoice/<int:invoice_id>/delete', methods=['POST'])
 @login_required
 def delete_invoice(invoice_id):
@@ -197,7 +188,28 @@ def delete_invoice(invoice_id):
     flash('Tagihan berhasil dihapus.', 'info')
     return redirect(url_for('invoices'))
 
+# --- RUTE BARU: HAPUS SEMUA TAGIHAN ---
+@app.route('/invoices/delete_all', methods=['POST'])
+@login_required
+def delete_all_invoices():
+    try:
+        # Hapus semua file di folder uploads
+        uploads_dir = os.path.join(app.root_path, 'static/uploads')
+        if os.path.exists(uploads_dir):
+            shutil.rmtree(uploads_dir)
+            os.makedirs(uploads_dir) # Buat lagi folder kosongnya
+
+        # Hapus semua record dari tabel Invoice
+        num_rows_deleted = db.session.query(Invoice).delete()
+        db.session.commit()
+        flash(f'Berhasil menghapus {num_rows_deleted} tagihan dan semua file nota terkait.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Terjadi error saat menghapus tagihan: {e}', 'danger')
+    return redirect(url_for('invoices'))
+
 # --- Sisa Rute ---
+# ... (Salin semua rute sisa di bawah ini tanpa perubahan) ...
 @app.route('/financial-report', methods=['GET', 'POST'])
 @login_required
 def financial_report():
