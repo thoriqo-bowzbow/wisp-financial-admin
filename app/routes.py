@@ -12,7 +12,7 @@ from flask_login import login_user, current_user, logout_user, login_required
 import openpyxl
 from io import BytesIO
 
-# ... (Fungsi Helper save_receipt_picture & get_settings tidak berubah) ...
+# --- Fungsi Helper ---
 def save_receipt_picture(form_picture, customer_name, invoice):
     random_hex = secrets.token_hex(8)
     _, f_ext = os.path.splitext(form_picture.filename)
@@ -33,7 +33,7 @@ def get_settings():
             settings[key] = value
     return settings
 
-# ... (Rute Autentikasi, Dashboard, API tidak berubah) ...
+# --- Rute Autentikasi ---
 @app.route("/login", methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated: return redirect(url_for('dashboard'))
@@ -53,6 +53,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+# --- Rute Utama & Dashboard ---
 @app.route("/")
 @app.route("/dashboard")
 @login_required
@@ -82,25 +83,7 @@ def api_financial_summary():
         expense_data.append(expense)
     return jsonify({'labels': labels, 'revenue': revenue_data, 'expenses': expense_data})
 
-# --- RUTE BARU: HAPUS TAGIHAN ---
-@app.route('/invoice/<int:invoice_id>/delete', methods=['POST'])
-@login_required
-def delete_invoice(invoice_id):
-    invoice = Invoice.query.get_or_404(invoice_id)
-
-    # Hapus file foto jika ada
-    if invoice.bukti_pembayaran:
-        try:
-            os.remove(os.path.join(app.root_path, 'static/uploads', invoice.bukti_pembayaran))
-        except FileNotFoundError:
-            pass # Abaikan jika file tidak ditemukan
-
-    db.session.delete(invoice)
-    db.session.commit()
-    flash('Tagihan berhasil dihapus.', 'info')
-    return redirect(url_for('invoices'))
-
-# ... (Sisa rute lain tidak berubah) ...
+# --- Rute Manajemen Pelanggan ---
 @app.route('/customers')
 @login_required
 def customers():
@@ -150,6 +133,7 @@ def delete_customer(customer_id):
     flash('Pelanggan berhasil dihapus.', 'info')
     return redirect(url_for('customers'))
 
+# --- Rute Manajemen Tagihan ---
 @app.route('/invoices', methods=['GET'])
 @login_required
 def invoices():
@@ -197,6 +181,23 @@ def generate_invoices():
         else: flash(f'Tidak ada tagihan baru yang dibuat. Semua pelanggan yang valid sudah punya tagihan untuk periode ini.', 'info')
     else: flash('Data formulir tidak valid.', 'danger')
     return redirect(url_for('invoices'))
+
+# --- PERBAIKAN DI SINI: RUTE HAPUS TAGIHAN DIKEMBALIKAN ---
+@app.route('/invoice/<int:invoice_id>/delete', methods=['POST'])
+@login_required
+def delete_invoice(invoice_id):
+    invoice = Invoice.query.get_or_404(invoice_id)
+    if invoice.bukti_pembayaran:
+        try:
+            os.remove(os.path.join(app.root_path, 'static/uploads', invoice.bukti_pembayaran))
+        except FileNotFoundError:
+            pass
+    db.session.delete(invoice)
+    db.session.commit()
+    flash('Tagihan berhasil dihapus.', 'info')
+    return redirect(url_for('invoices'))
+
+# --- Sisa Rute ---
 @app.route('/financial-report', methods=['GET', 'POST'])
 @login_required
 def financial_report():

@@ -34,7 +34,7 @@ class GenerateInvoicesForm(FlaskForm):
 
 class PaymentForm(FlaskForm):
     tanggal_lunas = DateField('Tanggal Pembayaran', format='%Y-%m-%d', default=datetime.utcnow, validators=[DataRequired()])
-    # --- FIELD BARU UNTUK UPLOAD FOTO ---
+    # --- PERBAIKAN DI SINI ---
     nota = FileField('Upload Nota (Opsional)', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     submit = SubmitField('Simpan Pembayaran')
 

@@ -38,7 +38,7 @@ class Invoice(db.Model):
     status = db.Column(db.String(20), nullable=False, default='Belum Lunas')
     tanggal_buat = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     tanggal_lunas = db.Column(db.DateTime, nullable=True)
-    # --- PERUBAHAN DI SINI ---
+    # --- PERBAIKAN DI SINI ---
     bukti_pembayaran = db.Column(db.String(100), nullable=True)
 
 class Expense(db.Model):

@@ -1,4 +1,3 @@
-sudo apt update && sudo apt upgrade -y
 #!/bin/bash
 # Script untuk memulai aplikasi WISP Financial Admin
 # dan menyimpan perubahan ke GitHub saat dihentikan.
